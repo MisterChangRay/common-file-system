@@ -67,8 +67,8 @@
         </javaClientGenerator>
 
         <!-- 指定数据库表 -->
-        <table tableName="authorize_code"></table>
-        <table tableName="file"></table>
+        <table tableName="common_authorize_code"></table>
+        <table tableName="common_file"></table>
 
 
         <!-- 有些表的字段需要指定java类型

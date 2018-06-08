@@ -25,6 +25,15 @@ public class CryptoUtils {
 
 
     /**
+     * 获取UUID
+     * @return
+     */
+    public static String getUUID() {
+        return UUID.randomUUID().toString().replaceAll("-", "");
+    }
+
+
+    /**
      * MD5加密
      *
      * @param bytes

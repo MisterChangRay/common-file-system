@@ -1,5 +1,7 @@
 package com.github.misterchangray.common.init;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.stereotype.Component;
@@ -12,11 +14,12 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class Init implements ApplicationListener<ContextRefreshedEvent> {
+    @Autowired
+    ApplicationContext applicationContext;
 
 
     //需要执行的逻辑代码，当spring容器初始化完成后就会执行该方法。
     public void onApplicationEvent(ContextRefreshedEvent contextRefreshedEvent) {
-
 
     }
 }
