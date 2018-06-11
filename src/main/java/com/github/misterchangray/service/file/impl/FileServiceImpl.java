@@ -13,6 +13,7 @@ import com.github.misterchangray.dao.entity.CommonFileQuery;
 import com.github.misterchangray.dao.mapper.CommonAuthorizeCodeMapper;
 import com.github.misterchangray.dao.mapper.CommonFileMapper;
 import com.github.misterchangray.service.file.FileService;
+import com.github.misterchangray.service.file.dto.FileInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -120,6 +121,12 @@ public class FileServiceImpl implements FileService {
         } else {
             return ResultSet.build(ResultEnum.INVALID_REQUEST);
         }
+    }
+
+
+
+    public ResultSet<CommonFile> packFilesToZip(List<FileInfo> fileInfos, String zipName, String appKey) throws Exception {
+        return null;
     }
 
 

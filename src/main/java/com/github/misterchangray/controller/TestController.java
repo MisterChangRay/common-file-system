@@ -4,7 +4,6 @@ import com.github.misterchangray.common.ResultSet;
 import com.github.misterchangray.common.annotation.Authentication;
 import com.github.misterchangray.common.enums.ResultEnum;
 import com.github.misterchangray.common.exception.ServiceException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
