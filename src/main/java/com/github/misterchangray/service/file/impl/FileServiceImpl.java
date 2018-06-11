@@ -6,6 +6,8 @@ import com.github.misterchangray.common.enums.DBEnum;
 import com.github.misterchangray.common.enums.ResultEnum;
 import com.github.misterchangray.common.utils.CryptoUtils;
 import com.github.misterchangray.common.utils.DateUtils;
+import com.github.misterchangray.dao.entity.CommonAuthorizeCode;
+import com.github.misterchangray.dao.entity.CommonAuthorizeCodeQuery;
 import com.github.misterchangray.dao.entity.CommonFile;
 import com.github.misterchangray.dao.entity.CommonFileQuery;
 import com.github.misterchangray.dao.mapper.CommonAuthorizeCodeMapper;
@@ -56,14 +58,47 @@ public class FileServiceImpl implements FileService {
 
 
     public ResultSet delete(CommonFile commonFile) {
-        String path = getFilePath(commonFile);
-        File filePath = new File(path);
-        filePath.delete();
-        return ResultSet.build(ResultEnum.SUCCESS);
+        if(null != commonFile && null != commonFile.getId()) {
+            CommonFileQuery commonFileQuery = new CommonFileQuery();
+            CommonFileQuery.Criteria fileCriteria = commonFileQuery.createCriteria();
+            fileCriteria.andFileMd5EqualTo(commonFile.getFileMd5());
+
+            if(1 == commonFileMapper.countByQuery(commonFileQuery)) {
+                CommonFile updateData = new CommonFile();
+                updateData.setId(commonFile.getId());
+                updateData.setDeleted(DBEnum.TRUE.getCode());
+
+                commonFileMapper.updateByQuerySelective(commonFile, commonFileQuery);
+            }
+            return ResultSet.build(ResultEnum.SUCCESS);
+        }
+        return ResultSet.build(ResultEnum.FAILURE);
+
     }
 
-    public ResultSet<CommonFile> saveFile(MultipartFile uploadFile) throws IOException {
-        if(!uploadFile.isEmpty()) {
+    public ResultSet<CommonFile> saveFile(MultipartFile uploadFile, String appKey) throws IOException {
+        if(!uploadFile.isEmpty() && null != appKey) {
+            //验证appKey
+            CommonAuthorizeCodeQuery commonAuthorizeCodeQuery = new CommonAuthorizeCodeQuery();
+            CommonAuthorizeCodeQuery.Criteria criteria = commonAuthorizeCodeQuery.createCriteria();
+            criteria.andCodeEqualTo(appKey);
+            criteria.andDeletedEqualTo(DBEnum.FALSE.getCode());
+            criteria.andEnabledEqualTo(DBEnum.TRUE.getCode());
+
+            List<CommonAuthorizeCode> commonAuthorizeCodes = commonAuthorizeCodeMapper.selectByQuery(commonAuthorizeCodeQuery);
+            if(0 == commonAuthorizeCodes.size()) return ResultSet.build(ResultEnum.INVALID_REQUEST);
+
+            //验证是否有相同文件;有则直接返回
+            String fileSign = CryptoUtils.encodeMD5(uploadFile.getBytes());
+            CommonFileQuery commonFileQuery = new CommonFileQuery();
+            CommonFileQuery.Criteria fileCriteria = commonFileQuery.createCriteria();
+            fileCriteria.andFileMd5EqualTo(fileSign);
+            List<CommonFile> commonFiles = commonFileMapper.selectByQuery(commonFileQuery);
+            if(0 != commonFiles.size()) {
+                return ResultSet.build(ResultEnum.SUCCESS).setData(commonFiles.get(0));
+            }
+
+            //保存上传文件信息
             CommonFile commonFile = new CommonFile();
             commonFile.setId(CryptoUtils.getUUID());
             commonFile.setFilePath(buildFilePath());
@@ -71,7 +106,7 @@ public class FileServiceImpl implements FileService {
             commonFile.setFileSize(String.valueOf(uploadFile.getSize()));
             commonFile.setFileSuffix(getSuffix(uploadFile.getOriginalFilename()));
             commonFile.setFileType(uploadFile.getContentType());
-            commonFile.setFileMd5(CryptoUtils.encodeMD5(uploadFile.getBytes()));
+            commonFile.setFileMd5(fileSign);
             if(0 != commonFileMapper.insert(commonFile)) {
                 //生成文件路径; basePath + uuid + 文件后缀
                 String path = commonFile.getFilePath() + commonFile.getId() + commonFile.getFileSuffix();

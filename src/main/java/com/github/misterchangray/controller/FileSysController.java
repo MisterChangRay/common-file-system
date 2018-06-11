@@ -51,14 +51,29 @@ public class FileSysController {
     @Authentication()
     @RequestMapping(value = "/upload", method = RequestMethod.POST)
     @ResponseBody
-    public ResultSet<CommonFile> fileUpload(@RequestParam("file") MultipartFile uploadFile) throws Exception{
+    public ResultSet<CommonFile> uploadFile(@RequestParam("file") MultipartFile uploadFile) throws Exception{
         if(null == uploadFile) return ResultSet.build(ResultEnum.INVALID_REQUEST);
         if(maxSize < uploadFile.getSize()) return ResultSet.build(ResultEnum.INVALID_REQUEST).setMsg("文件不能超过10MB");
 
-        return fileService.saveFile(uploadFile);
+        return fileService.saveFile(uploadFile, "");
     }
 
 
+    @ApiOperation(value = "文件打包接口", notes = "文件打包接口")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name="fileId", value = "欲上传的文件", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="target", value = "文件标签", required = false, paramType = "query", dataType = "string"),
+    })
+    @Authentication()
+    @RequestMapping(value = "/upload", method = RequestMethod.POST)
+    @ResponseBody
+    public ResultSet<CommonFile> packFilesToZip(@RequestParam("file") MultipartFile uploadFile,
+                                                @RequestParam("appKey") String appKey) throws Exception{
+        if(null == uploadFile) return ResultSet.build(ResultEnum.INVALID_REQUEST);
+        if(null == appKey) return ResultSet.build(ResultEnum.INVALID_REQUEST);
+        if(maxSize < uploadFile.getSize()) return ResultSet.build(ResultEnum.INVALID_REQUEST).setMsg("文件不能超过" + (maxSize/1048576) + "MB");
 
+        return fileService.saveFile(uploadFile, appKey);
+    }
 
 }

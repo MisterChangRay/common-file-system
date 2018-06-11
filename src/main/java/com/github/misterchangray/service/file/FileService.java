@@ -14,5 +14,5 @@ import java.io.IOException;
  * @author Created on 3/20/2018.
  */
 public interface FileService extends BaseService<CommonFile> {
-    ResultSet<CommonFile> saveFile(MultipartFile uploadFile) throws IOException;
+    ResultSet<CommonFile> saveFile(MultipartFile uploadFile, String appKey) throws IOException;
 }
