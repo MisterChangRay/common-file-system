@@ -20,8 +20,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * 文件服务实现类
@@ -36,8 +40,25 @@ public class FileServiceImpl implements FileService {
     @Autowired
     CommonAuthorizeCodeMapper commonAuthorizeCodeMapper;
     @Value("${file.base.path:d:/upload}")
-    private String basePath;
+    private String baseUploadPath;
 
+
+
+    public ResultSet saveAll(List<CommonFile> commonFiles) { return null; }
+
+    public ResultSet edit(CommonFile commonFile) { return null; }
+
+    public ResultSet exist(List<Integer> ids) {
+        return null;
+    }
+
+    public ResultSet getById(Integer id) {
+        return null;
+    }
+
+    public ResultSet getByIds(List<Integer> ids) {
+        return null;
+    }
 
     public ResultSet list(CommonFile commonFile, PageInfo pageInfo) {
         if(null == pageInfo) pageInfo = new PageInfo();
@@ -52,7 +73,7 @@ public class FileServiceImpl implements FileService {
         return ResultSet.build().setData(commonFileMapper.selectByQuery(commonFileQuery)).setPageInfo(pageInfo);
     }
 
-    public ResultSet insert(CommonFile commonFile) {
+    public ResultSet save(CommonFile commonFile) {
         commonFileMapper.insert(commonFile);
         return ResultSet.build(ResultEnum.SUCCESS);
     }
@@ -77,40 +98,36 @@ public class FileServiceImpl implements FileService {
 
     }
 
+    /**
+     * 保存文件到硬盘
+     * @param uploadFile
+     * @param appKey
+     * @return
+     * @throws IOException
+     */
     public ResultSet<CommonFile> saveFile(MultipartFile uploadFile, String appKey) throws IOException {
         if(!uploadFile.isEmpty() && null != appKey) {
             //验证appKey
-            CommonAuthorizeCodeQuery commonAuthorizeCodeQuery = new CommonAuthorizeCodeQuery();
-            CommonAuthorizeCodeQuery.Criteria criteria = commonAuthorizeCodeQuery.createCriteria();
-            criteria.andCodeEqualTo(appKey);
-            criteria.andDeletedEqualTo(DBEnum.FALSE.getCode());
-            criteria.andEnabledEqualTo(DBEnum.TRUE.getCode());
-
-            List<CommonAuthorizeCode> commonAuthorizeCodes = commonAuthorizeCodeMapper.selectByQuery(commonAuthorizeCodeQuery);
-            if(0 == commonAuthorizeCodes.size()) return ResultSet.build(ResultEnum.INVALID_REQUEST);
+            if(false == this.existAppKey(appKey)) return ResultSet.build(ResultEnum.INVALID_REQUEST);
 
             //验证是否有相同文件;有则直接返回
             String fileSign = CryptoUtils.encodeMD5(uploadFile.getBytes());
-            CommonFileQuery commonFileQuery = new CommonFileQuery();
-            CommonFileQuery.Criteria fileCriteria = commonFileQuery.createCriteria();
-            fileCriteria.andFileMd5EqualTo(fileSign);
-            List<CommonFile> commonFiles = commonFileMapper.selectByQuery(commonFileQuery);
-            if(0 != commonFiles.size()) {
-                return ResultSet.build(ResultEnum.SUCCESS).setData(commonFiles.get(0));
-            }
+            CommonFile commonFile;
+            if(null != (commonFile = this.existFile(fileSign))) return ResultSet.build(ResultEnum.SUCCESS).setData(commonFile);
 
             //保存上传文件信息
-            CommonFile commonFile = new CommonFile();
+            commonFile = new CommonFile();
             commonFile.setId(CryptoUtils.getUUID());
-            commonFile.setFilePath(buildFilePath());
+            commonFile.setFileSuffix(getSuffix(uploadFile.getOriginalFilename()));
+            commonFile.setFilePath(buildFilePath() + commonFile.getId() + commonFile.getFileSuffix());
             commonFile.setFileName(uploadFile.getOriginalFilename());
             commonFile.setFileSize(String.valueOf(uploadFile.getSize()));
-            commonFile.setFileSuffix(getSuffix(uploadFile.getOriginalFilename()));
             commonFile.setFileType(uploadFile.getContentType());
             commonFile.setFileMd5(fileSign);
+            commonFile.setDeleted(DBEnum.FALSE.getCode());
             if(0 != commonFileMapper.insert(commonFile)) {
-                //生成文件路径; basePath + uuid + 文件后缀
-                String path = commonFile.getFilePath() + commonFile.getId() + commonFile.getFileSuffix();
+                //生成文件路径; baseUploadPath + uuid + 文件后缀
+                String path = baseUploadPath + commonFile.getFilePath();
                 //保存上传文件
                 uploadFile.transferTo(new File(path));
 
@@ -125,10 +142,132 @@ public class FileServiceImpl implements FileService {
 
 
 
+    /**
+     * 打包文件成zip包
+     * @param fileInfos
+     * @param zipName
+     * @param appKey
+     * @return
+     * @throws Exception
+     */
     public ResultSet<CommonFile> packFilesToZip(List<FileInfo> fileInfos, String zipName, String appKey) throws Exception {
+        if(null == fileInfos) ResultSet.build(ResultEnum.INVALID_REQUEST);
+        if(null == appKey) ResultSet.build(ResultEnum.INVALID_REQUEST);
+
+        //验证appKey
+        if(false == this.existAppKey(appKey)) return ResultSet.build(ResultEnum.INVALID_REQUEST);
+
+        String zipFilePath = this.packZipFile(fileInfos, zipName);
+        File file = new File(zipFilePath);
+        if(null != zipFilePath) {
+            //保存压缩文件信息
+            CommonFile commonFile = new CommonFile();
+            commonFile.setId(CryptoUtils.getUUID());
+            commonFile.setFilePath(zipFilePath);
+            commonFile.setFileName(file.getName());
+            commonFile.setFileSize(String.valueOf(file.length()));
+            commonFile.setFileSuffix(getSuffix(file.getName()));
+            commonFile.setFilePath(zipFilePath);
+            commonFile.setFileType("application/zip");
+            this.save(commonFile);
+
+            return ResultSet.build(ResultEnum.SUCCESS).setData(commonFile);
+        }
+        return ResultSet.build(ResultEnum.INVALID_REQUEST);
+    }
+
+    /**
+     * 验证文件是否存在
+     * @param fileMd5
+     * @return
+     * 如存在则直接返回文件信息;如不存在则返回null
+     */
+    private CommonFile existFile(String fileMd5) {
+        //验证是否有相同文件;有则直接返回
+        String fileSign = fileMd5;
+        CommonFileQuery commonFileQuery = new CommonFileQuery();
+        CommonFileQuery.Criteria fileCriteria = commonFileQuery.createCriteria();
+        fileCriteria.andFileMd5EqualTo(fileSign);
+        List<CommonFile> commonFiles = commonFileMapper.selectByQuery(commonFileQuery);
+        if(0 != commonFiles.size()) {
+            return commonFiles.get(0);
+        }
         return null;
     }
 
+    /**
+     * 验证Appkey是否有效
+     * @param appKey
+     * @return true有效;false无效
+     */
+    private boolean existAppKey(String appKey) {
+        //验证appKey
+        CommonAuthorizeCodeQuery commonAuthorizeCodeQuery = new CommonAuthorizeCodeQuery();
+        CommonAuthorizeCodeQuery.Criteria criteria = commonAuthorizeCodeQuery.createCriteria();
+        criteria.andCodeEqualTo(appKey);
+        criteria.andDeletedEqualTo(DBEnum.FALSE.getCode());
+        criteria.andEnabledEqualTo(DBEnum.TRUE.getCode());
+
+        List<CommonAuthorizeCode> commonAuthorizeCodes = commonAuthorizeCodeMapper.selectByQuery(commonAuthorizeCodeQuery);
+        if(0 == commonAuthorizeCodes.size()) return false;
+        return true;
+    }
+
+
+    /**
+     * 打包成Zip文件
+     * @param fileInfos 被压缩文件信息
+     * @param zipName   压缩文件名
+     * @return 返回压缩文件名
+     * @throws RuntimeException 压缩失败会抛出运行时异常
+     */
+    private String packZipFile(List<FileInfo>  fileInfos, String zipName) throws Exception{
+        if(null == fileInfos || 0 == fileInfos.size()) return null;
+        byte[] buf = new byte[2 * 1024];
+        File sourceFile;
+        String path, filename, target, zipFilePath = baseUploadPath + "/zipFiles/";
+        if(null != zipName) {
+            zipFilePath += CryptoUtils.getUUID() + "/" + zipName;
+        } else {
+            zipFilePath += zipName;
+        }
+        if(!zipName.contains(".")) zipFilePath += ".zip";
+
+        List<CommonFile> commonFiles;
+        CommonFile commonFile;
+        FileOutputStream out = new FileOutputStream(new File(zipFilePath));
+        ZipOutputStream zos = new ZipOutputStream(out);
+        CommonFileQuery commonFileQuery = new CommonFileQuery();
+        CommonFileQuery.Criteria commonFileQueryCriteria = commonFileQuery.createCriteria();
+
+        for(FileInfo fileInfo : fileInfos) {
+            commonFileQueryCriteria.andIdEqualTo(fileInfo.getFileId());
+            commonFiles = commonFileMapper.selectByQuery(commonFileQuery);
+            if(null != commonFiles && 1 == commonFiles.size()) {
+                commonFile = commonFiles.get(0);
+                sourceFile = new File(getFilePath(commonFile));
+
+                if(null != (target = fileInfo.getTarget())) {
+                    filename = target.replaceAll(".*[\\/]","");
+                    path = target.substring(0 ,target.length() - filename.length());
+                    zos.putNextEntry(new ZipEntry(path + filename));
+                } else {
+                    zos.putNextEntry(new ZipEntry(commonFile.getFileName()));
+                }
+
+                // copy文件到zip输出流中
+                int len;
+                FileInputStream in = new FileInputStream(sourceFile);
+                while ((len = in.read(buf)) != -1){
+                    zos.write(buf, 0, len);
+                }
+                // Complete the entry
+                zos.closeEntry();
+                in.close();
+            }
+        }
+        return zipFilePath;
+    }
 
     /**
      * 获取文件后缀
@@ -145,7 +284,6 @@ public class FileServiceImpl implements FileService {
      */
     private String buildFilePath() {
         StringBuilder path = new StringBuilder();
-        path.append(basePath);
         path.append("/");
         path.append(DateUtils.now("yyyy-MM-dd"));
         path.append("/");
@@ -163,7 +301,7 @@ public class FileServiceImpl implements FileService {
      * @return
      */
     private String getFilePath(CommonFile commonFile) {
-        String path = basePath + commonFile.getFilePath();
+        String path = baseUploadPath + commonFile.getFilePath();
         File filePath = new File(path);
         //判断路径是否存在，如果不存在就创建一个
         if (filePath.exists()) {
@@ -173,20 +311,4 @@ public class FileServiceImpl implements FileService {
     }
 
 
-
-    public ResultSet batchInsert(List<CommonFile> commonFiles) { return null; }
-
-    public ResultSet update(CommonFile commonFile) { return null; }
-
-    public ResultSet exist(List<Integer> ids) {
-        return null;
-    }
-
-    public ResultSet getById(Integer id) {
-        return null;
-    }
-
-    public ResultSet getByIds(List<Integer> ids) {
-        return null;
-    }
 }

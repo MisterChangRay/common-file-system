@@ -48,21 +48,21 @@ public interface BaseService<Entity> {
      * @param entity
      * @return
      */
-    ResultSet insert(Entity entity);
+    ResultSet save(Entity entity);
 
     /**
      * 批量新增
      * @param entities
      * @return
      */
-    ResultSet batchInsert(List<Entity> entities);
+    ResultSet saveAll(List<Entity> entities);
 
     /**
      * 编辑
      * @param entity
      * @return
      */
-    ResultSet update(Entity entity);
+    ResultSet edit(Entity entity);
 
 
     /**

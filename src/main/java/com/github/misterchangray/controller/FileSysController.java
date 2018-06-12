@@ -3,8 +3,6 @@ package com.github.misterchangray.controller;
 import com.github.misterchangray.common.ResultSet;
 import com.github.misterchangray.common.annotation.Authentication;
 import com.github.misterchangray.common.enums.ResultEnum;
-import com.github.misterchangray.common.utils.CryptoUtils;
-import com.github.misterchangray.common.utils.DateUtils;
 import com.github.misterchangray.dao.entity.CommonFile;
 import com.github.misterchangray.service.file.FileService;
 import com.github.misterchangray.service.file.dto.FileInfo;
@@ -15,16 +13,11 @@ import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpSession;
-import java.io.File;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 文件控制器
@@ -40,6 +33,7 @@ public class FileSysController {
     private HttpSession httpSession;
     @Autowired
     private FileService fileService;
+
     @Value("${upload.max.size:10485760}")
     private Long maxSize;
 
@@ -48,17 +42,17 @@ public class FileSysController {
 
     @ApiOperation(value = "文件上传接口", notes = "文件上传接口")
     @ApiImplicitParams({
-            @ApiImplicitParam(name="file", value = "欲上传的文件", required = true, paramType = "query", dataType = "string"),
-            @ApiImplicitParam(name="tag", value = "文件标签", required = false, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="file", value = "欲上传的文件", required = true, paramType = "query", dataType = "string")
     })
     @Authentication()
     @RequestMapping(value = "/uploadFile", method = RequestMethod.POST)
     @ResponseBody
-    public ResultSet<CommonFile> uploadFile(@RequestParam("file") MultipartFile uploadFile) throws Exception{
+    public ResultSet<CommonFile> uploadFile(@RequestParam("file") MultipartFile uploadFile,
+                                            @RequestParam("appKey") String appKey) throws Exception{
         if(null == uploadFile) return ResultSet.build(ResultEnum.INVALID_REQUEST);
         if(maxSize < uploadFile.getSize()) return ResultSet.build(ResultEnum.INVALID_REQUEST).setMsg("文件不能超过10MB");
 
-        return fileService.saveFile(uploadFile, "");
+        return fileService.saveFile(uploadFile, appKey);
     }
 
 
@@ -66,15 +60,19 @@ public class FileSysController {
      * 文件打包接口;
      * 被打包的文件将会经过以下操作:
      * 1.寻找被打包文件ID
-     * 2.如果target指定了目录,则移动到target目录下;
-     * 3.如果target指定了文件名和后缀;则修改文件名和后缀
+     * 2.如果target 指定了目录,则移动到target目录下;
+     * 3.如果target 指定了文件名和后缀;则修改文件名和后缀
      * 4.完成所有的文件后打包文件夹
+     * 5.根据 zipName 将打包后的压缩文件重命名
      * 例如
      * 传入参数为 {fileInfos:[{fileId:"1", target:target:"/身份证/身份证证明.jpg"}],zipName:"ceshi.zip", appKey:"185gs158qje" };将会执行以下操作：
-     * 1.移动文件ID为1的文件到 "/身份证/" 目录下(如没有则创建)
+     * 1.移动文件ID为1的文件到 "/身份证/" 目录下(如没有此目录则创建)
      * 2.将移动后的文件名称为 "身份证证明.jpg"
      * 3.连同目录打包文件并将打包后的zip文件命名为 "ceshi.zip"
-     *
+     * tips:
+     * - 若 target 只有目录;则只移动文件不改文件名
+     * - 若 target 只有文件名;则平级打包并修改文件名
+     * - 若 target 为null;则直接进行平级打包
      * @param fileInfos
      * @param zipName
      * @param appKey
@@ -96,8 +94,7 @@ public class FileSysController {
         if(null == fileInfos) return ResultSet.build(ResultEnum.INVALID_REQUEST);
         if(null == appKey) return ResultSet.build(ResultEnum.INVALID_REQUEST);
 
-
-        return null;
+        return fileService.packFilesToZip(fileInfos, zipName, appKey);
     }
 
 }
