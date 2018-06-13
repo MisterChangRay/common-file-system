@@ -169,7 +169,7 @@ public class FileServiceImpl implements FileService {
             commonFile.setFilePath(zipFilePath.replaceAll(baseUploadPath, ""));
             commonFile.setFileType("application/zip");
             commonFile.setDeleted(DBEnum.FALSE.getCode());
-//            this.save(commonFile); //todo 暂不保存压缩文件
+//            this.save(commonFile); //todo 暂不保存压缩文件到数据库
 
             return ResultSet.build(ResultEnum.SUCCESS).setData(commonFile);
         }
