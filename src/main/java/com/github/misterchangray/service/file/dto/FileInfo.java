@@ -44,4 +44,12 @@ public class FileInfo {
     public void setTarget(String target) {
         this.target = target;
     }
+
+
+    public FileInfo() { }
+
+    public FileInfo(String fileId, String target) {
+        this.fileId = fileId;
+        this.target = target;
+    }
 }

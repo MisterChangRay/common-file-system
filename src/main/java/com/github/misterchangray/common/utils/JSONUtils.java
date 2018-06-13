@@ -1,12 +1,16 @@
 package com.github.misterchangray.common.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.misterchangray.service.file.dto.FileInfo;
 import org.aspectj.weaver.BCException;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -24,12 +28,35 @@ public class JSONUtils {
     private static ObjectMapper mapper = new ObjectMapper();
 
     public static void main(String[] a) {
+        String b = "[{\"target\":\"/etc/cao.png\"},{\"fileId\":\"\",\"target\":\"/etc2/cao2.png\"}]";
 
+        List<FileInfo> fileInfos = json2ListObj(b, FileInfo.class);
+        System.out.println(fileInfos);
 
 
 
     }
 
+    /**
+     * json转到指定对象集合
+     * 例如 List<User> 则调用 json2ListObj("[{id:0},{id:1}]", User.class)
+     *
+     * @param json
+     * @return
+     * @throws BCException
+     */
+    public static <T> List<T> json2ListObj(String json, Class<T> t) {
+        JavaType javaType = mapper.getTypeFactory().constructParametrizedType(ArrayList.class, List.class, t);
+        List<T> res = null;
+        try {
+            res = (List<T>) mapper.readValue(json, javaType);
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return res;
+    }
 
     /**
      * 构建json树

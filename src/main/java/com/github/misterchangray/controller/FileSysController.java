@@ -3,6 +3,7 @@ package com.github.misterchangray.controller;
 import com.github.misterchangray.common.ResultSet;
 import com.github.misterchangray.common.annotation.Authentication;
 import com.github.misterchangray.common.enums.ResultEnum;
+import com.github.misterchangray.common.utils.JSONUtils;
 import com.github.misterchangray.dao.entity.CommonFile;
 import com.github.misterchangray.service.file.FileService;
 import com.github.misterchangray.service.file.dto.FileInfo;
@@ -73,7 +74,7 @@ public class FileSysController {
      * - 若 target 只有目录;则只移动文件不改文件名
      * - 若 target 只有文件名;则平级打包并修改文件名
      * - 若 target 为null;则直接进行平级打包
-     * @param fileInfos
+     * @param fileInfosJsonStr
      * @param zipName
      * @param appKey
      * @return
@@ -88,12 +89,14 @@ public class FileSysController {
     @Authentication()
     @RequestMapping(value = "/packFilesToZip", method = RequestMethod.POST)
     @ResponseBody
-    public ResultSet<CommonFile> packFilesToZip(@RequestParam("fileInfos") List<FileInfo> fileInfos,
+    public ResultSet<CommonFile> packFilesToZip(@RequestParam("fileInfos") String fileInfosJsonStr,
                                                 @RequestParam(value = "zipName", required = false) String zipName,
                                                 @RequestParam("appKey") String appKey) throws Exception{
-        if(null == fileInfos) return ResultSet.build(ResultEnum.INVALID_REQUEST);
+        if(null == fileInfosJsonStr) return ResultSet.build(ResultEnum.INVALID_REQUEST);
         if(null == appKey) return ResultSet.build(ResultEnum.INVALID_REQUEST);
+        List<FileInfo> fileInfos = JSONUtils.json2ListObj(fileInfosJsonStr, FileInfo.class);
 
+        if(null == fileInfos || 0 == fileInfos.size()) return ResultSet.build(ResultEnum.INVALID_REQUEST);
         return fileService.packFilesToZip(fileInfos, zipName, appKey);
     }
 

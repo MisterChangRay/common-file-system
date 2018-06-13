@@ -18,12 +18,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
  * @description
  */
 @Controller
-@Authentication
-@RequestMapping("/v1/test")
+@RequestMapping("/upload")
 public class TestController {
 
 
-    @RequestMapping(value = "test1",method = RequestMethod.GET)
+    @RequestMapping(value = "/**", method = RequestMethod.GET)
     @ResponseBody
     public ResultSet constant(@RequestParam(required = false) Integer pid) throws Exception {
         ResultSet res = ResultSet.build();

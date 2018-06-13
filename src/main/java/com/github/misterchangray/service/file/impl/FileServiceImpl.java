@@ -163,13 +163,13 @@ public class FileServiceImpl implements FileService {
             //保存压缩文件信息
             CommonFile commonFile = new CommonFile();
             commonFile.setId(CryptoUtils.getUUID());
-            commonFile.setFilePath(zipFilePath);
             commonFile.setFileName(file.getName());
             commonFile.setFileSize(String.valueOf(file.length()));
             commonFile.setFileSuffix(getSuffix(file.getName()));
-            commonFile.setFilePath(zipFilePath);
+            commonFile.setFilePath(zipFilePath.replaceAll(baseUploadPath, ""));
             commonFile.setFileType("application/zip");
-            this.save(commonFile);
+            commonFile.setDeleted(DBEnum.FALSE.getCode());
+//            this.save(commonFile); //todo 暂不保存压缩文件
 
             return ResultSet.build(ResultEnum.SUCCESS).setData(commonFile);
         }
@@ -226,21 +226,24 @@ public class FileServiceImpl implements FileService {
         byte[] buf = new byte[2 * 1024];
         File sourceFile;
         String path, filename, target, zipFilePath = baseUploadPath + "/zipFiles/";
-        if(null != zipName) {
+        if(null != zipName && !"".equals(zipName)) {
             zipFilePath += CryptoUtils.getUUID() + "/" + zipName;
         } else {
-            zipFilePath += zipName;
+            zipFilePath += CryptoUtils.getUUID();
         }
         if(!zipName.contains(".")) zipFilePath += ".zip";
 
         List<CommonFile> commonFiles;
         CommonFile commonFile;
-        FileOutputStream out = new FileOutputStream(new File(zipFilePath));
+        File file = new File(zipFilePath);
+        if(!file.getParentFile().exists()) file.getParentFile().mkdirs();
+
+        FileOutputStream out = new FileOutputStream(file);
         ZipOutputStream zos = new ZipOutputStream(out);
-        CommonFileQuery commonFileQuery = new CommonFileQuery();
-        CommonFileQuery.Criteria commonFileQueryCriteria = commonFileQuery.createCriteria();
 
         for(FileInfo fileInfo : fileInfos) {
+            CommonFileQuery commonFileQuery = new CommonFileQuery();
+            CommonFileQuery.Criteria commonFileQueryCriteria = commonFileQuery.createCriteria();
             commonFileQueryCriteria.andIdEqualTo(fileInfo.getFileId());
             commonFiles = commonFileMapper.selectByQuery(commonFileQuery);
             if(null != commonFiles && 1 == commonFiles.size()) {
@@ -250,7 +253,15 @@ public class FileServiceImpl implements FileService {
                 if(null != (target = fileInfo.getTarget())) {
                     filename = target.replaceAll(".*[\\/]","");
                     path = target.substring(0 ,target.length() - filename.length());
-                    zos.putNextEntry(new ZipEntry(path + filename));
+
+                    if(null != path && !"".equals(path)) {
+                        path = path.replaceFirst("[\\/]", "");
+                    }
+                    if(null == filename || "".equals(filename)) {
+                        zos.putNextEntry(new ZipEntry(path + commonFile.getFileName()));
+                    } else {
+                        zos.putNextEntry(new ZipEntry(path + filename));
+                    }
                 } else {
                     zos.putNextEntry(new ZipEntry(commonFile.getFileName()));
                 }
@@ -262,10 +273,14 @@ public class FileServiceImpl implements FileService {
                     zos.write(buf, 0, len);
                 }
                 // Complete the entry
-                zos.closeEntry();
                 in.close();
             }
         }
+        zos.finish();
+        zos.closeEntry();
+        out.flush();
+        out.close();
+
         return zipFilePath;
     }
 
@@ -304,7 +319,7 @@ public class FileServiceImpl implements FileService {
         String path = baseUploadPath + commonFile.getFilePath();
         File filePath = new File(path);
         //判断路径是否存在，如果不存在就创建一个
-        if (filePath.exists()) {
+        if (!filePath.exists()) {
             filePath.mkdirs();
         }
         return path;

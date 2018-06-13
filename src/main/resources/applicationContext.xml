@@ -21,8 +21,6 @@
             <list>
                 <!-- jdbc配置-->
                 <value>classpath*:jdbc.properties</value>
-                <!-- redis配置-->
-                <value>classpath*:redis.properties</value>
                 <!-- 系统配置 -->
                 <value>classpath*:config.properties</value>
             </list>
