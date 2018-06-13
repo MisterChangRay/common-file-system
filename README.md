@@ -18,6 +18,8 @@
 ```sql
 drop database common_file_system;
 
+use common_file_system;
+
 create database common_file_system;
 
 create table common_authorize_code;
