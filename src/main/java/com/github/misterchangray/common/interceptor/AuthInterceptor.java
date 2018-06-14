@@ -1,7 +1,7 @@
 package com.github.misterchangray.common.interceptor;
 
 
-import com.github.misterchangray.common.annotation.Authentication;
+import com.github.misterchangray.common.annotation.Authorization;
 import com.github.misterchangray.common.enums.ResultEnum;
 import com.github.misterchangray.common.exception.ServiceException;
 import com.github.misterchangray.service.file.FileService;
@@ -15,7 +15,7 @@ import java.lang.reflect.Method;
 
 /**
  * 权限校验拦截器：
- * 1.首先判断访问的方法是否包含 @Authentication 注解;
+ * 1.首先判断访问的方法是否包含 @Authorization 注解;
  * 2.再判断当前登录用户集合中是否存在该session；并校验session正确性
  *
  * tips:如果使用单点登录;则请在 tokenValidate 方法中直接使用单点登录验证;
@@ -55,12 +55,12 @@ public class AuthInterceptor extends HandlerInterceptorAdapter {
         Method method = handlerMethod.getMethod();
 
         // 通过注解判断接口是否需要权限认证
-        Authentication classAnnotation = method.getDeclaringClass().getAnnotation(Authentication.class);
-        Authentication methodAnnotation = method.getAnnotation(Authentication.class);
-        // 有 @Authentication 注解，需要认证
+        Authorization classAnnotation = method.getDeclaringClass().getAnnotation(Authorization.class);
+        Authorization methodAnnotation = method.getAnnotation(Authorization.class);
+        // 有 @Authorization 注解，需要认证
         if (null != classAnnotation || methodAnnotation != null) {
             // 这里执行认证
-            String token = request.getHeader("Authentication");  // 从 http 请求头中取出 Authentication
+            String token = request.getHeader("Authorization");  // 从 http 请求头中取出 Authorization
 
             if (null == token) throw new ServiceException(ResultEnum.NEED_AUTH, "无token，请先登录");
 

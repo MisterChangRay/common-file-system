@@ -1,7 +1,7 @@
 package com.github.misterchangray.controller;
 
 import com.github.misterchangray.common.ResultSet;
-import com.github.misterchangray.common.annotation.Authentication;
+import com.github.misterchangray.common.annotation.Authorization;
 import com.github.misterchangray.common.enums.ResultEnum;
 import com.github.misterchangray.common.utils.FileUtils;
 import com.github.misterchangray.common.utils.JSONUtils;
@@ -50,12 +50,12 @@ public class FileSysController {
      * @return
      * @throws Exception
      */
-    @ApiOperation(value = "文件上传接口", notes = "文件上传接口;请在请求头中携带单点的 Authentication")
+    @ApiOperation(value = "文件上传接口", notes = "文件上传接口;请在请求头中携带单点的 Authorization")
     @ApiImplicitParams({
             @ApiImplicitParam(name="file", value = "欲上传的文件", required = true, paramType = "query", dataType = "string"),
             @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = true, paramType = "query", dataType = "string")
     })
-    @Authentication()
+    @Authorization()
     @RequestMapping(value = "/uploadFile", method = RequestMethod.POST)
     @ResponseBody
     public ResultSet<CommonFile> uploadFile(@RequestParam("file") MultipartFile uploadFile,
@@ -91,13 +91,13 @@ public class FileSysController {
      * @return
      * @throws Exception
      */
-    @ApiOperation(value = "文件打包接口", notes = "文件打包接口;请在请求头中携带单点的 Authentication")
+    @ApiOperation(value = "文件打包接口", notes = "文件打包接口;请在请求头中携带单点的 Authorization")
     @ApiImplicitParams({
             @ApiImplicitParam(name="fileInfos", value = "欲打包的文件信息;此字段传入JSON串;包含以下字段：<br>fileId 文件ID<br>target 文件处理信息<br>", required = true, paramType = "query", dataType = "string"),
             @ApiImplicitParam(name="zipName", value = "打包文件名;可以为空", required = true, paramType = "query", dataType = "string"),
             @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = false, paramType = "query", dataType = "string"),
     })
-    @Authentication()
+    @Authorization()
     @RequestMapping(value = "/packFilesToZip", method = RequestMethod.POST)
     @ResponseBody
     public ResultSet<CommonFile> packFilesToZip(@RequestParam("fileInfos") String fileInfosJsonStr,

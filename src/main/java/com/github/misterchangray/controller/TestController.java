@@ -1,7 +1,6 @@
 package com.github.misterchangray.controller;
 
 import com.github.misterchangray.common.ResultSet;
-import com.github.misterchangray.common.annotation.Authentication;
 import com.github.misterchangray.common.enums.ResultEnum;
 import com.github.misterchangray.common.exception.ServiceException;
 import org.springframework.stereotype.Controller;
