@@ -6,6 +6,7 @@ import com.github.misterchangray.common.enums.DBEnum;
 import com.github.misterchangray.common.enums.ResultEnum;
 import com.github.misterchangray.common.utils.CryptoUtils;
 import com.github.misterchangray.common.utils.DateUtils;
+import com.github.misterchangray.common.utils.FileUtils;
 import com.github.misterchangray.dao.entity.CommonAuthorizeCode;
 import com.github.misterchangray.dao.entity.CommonAuthorizeCodeQuery;
 import com.github.misterchangray.dao.entity.CommonFile;
@@ -118,7 +119,7 @@ public class FileServiceImpl implements FileService {
             //保存上传文件信息
             commonFile = new CommonFile();
             commonFile.setId(CryptoUtils.getUUID());
-            commonFile.setFileSuffix(getSuffix(uploadFile.getOriginalFilename()));
+            commonFile.setFileSuffix(FileUtils.getSuffix(uploadFile.getOriginalFilename()));
             commonFile.setFilePath(buildFilePath() + commonFile.getId() + commonFile.getFileSuffix());
             commonFile.setFileName(uploadFile.getOriginalFilename());
             commonFile.setFileSize(String.valueOf(uploadFile.getSize()));
@@ -128,8 +129,11 @@ public class FileServiceImpl implements FileService {
             if(0 != commonFileMapper.insert(commonFile)) {
                 //生成文件路径; baseUploadPath + uuid + 文件后缀
                 String path = baseUploadPath + commonFile.getFilePath();
+
+                File file = new File(path);
+                if(!file.getParentFile().exists()) file.getParentFile().mkdirs();
                 //保存上传文件
-                uploadFile.transferTo(new File(path));
+                uploadFile.transferTo(file);
 
                 return ResultSet.build(ResultEnum.SUCCESS).setData(commonFile);
             } else {
@@ -165,7 +169,7 @@ public class FileServiceImpl implements FileService {
             commonFile.setId(CryptoUtils.getUUID());
             commonFile.setFileName(file.getName());
             commonFile.setFileSize(String.valueOf(file.length()));
-            commonFile.setFileSuffix(getSuffix(file.getName()));
+            commonFile.setFileSuffix(FileUtils.getSuffix(file.getName()));
             commonFile.setFilePath(zipFilePath.replaceAll(baseUploadPath, ""));
             commonFile.setFileType("application/zip");
             commonFile.setDeleted(DBEnum.FALSE.getCode());
@@ -284,14 +288,7 @@ public class FileServiceImpl implements FileService {
         return zipFilePath;
     }
 
-    /**
-     * 获取文件后缀
-     * @return
-     */
-    private String getSuffix(String filename) {
-        if (null == filename) return "";
-        return filename.replaceAll("^.+(?=\\.)", "");
-    }
+
 
     /**
      * 创建文件保存的路径

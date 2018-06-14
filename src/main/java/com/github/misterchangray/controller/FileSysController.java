@@ -3,6 +3,7 @@ package com.github.misterchangray.controller;
 import com.github.misterchangray.common.ResultSet;
 import com.github.misterchangray.common.annotation.Authentication;
 import com.github.misterchangray.common.enums.ResultEnum;
+import com.github.misterchangray.common.utils.FileUtils;
 import com.github.misterchangray.common.utils.JSONUtils;
 import com.github.misterchangray.dao.entity.CommonFile;
 import com.github.misterchangray.service.file.FileService;
@@ -37,13 +38,22 @@ public class FileSysController {
 
     @Value("${upload.max.size:10485760}")
     private Long maxSize;
+    @Value("${upload.file.type:jpg;jpeg;png;}")
+    private String uploadFileType;
 
 
-
-
-    @ApiOperation(value = "文件上传接口", notes = "文件上传接口")
+    /**
+     * 文件上传接口;
+     * 在配置的上传根目录中;根据当天日期建立一个文件夹作为存放点
+     * @param uploadFile 上传文件流
+     * @param appKey 文件服务器分配的 appKey
+     * @return
+     * @throws Exception
+     */
+    @ApiOperation(value = "文件上传接口", notes = "文件上传接口;请在请求头中携带单点的 Authentication")
     @ApiImplicitParams({
-            @ApiImplicitParam(name="file", value = "欲上传的文件", required = true, paramType = "query", dataType = "string")
+            @ApiImplicitParam(name="file", value = "欲上传的文件", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = true, paramType = "query", dataType = "string")
     })
     @Authentication()
     @RequestMapping(value = "/uploadFile", method = RequestMethod.POST)
@@ -52,6 +62,7 @@ public class FileSysController {
                                             @RequestParam("appKey") String appKey) throws Exception{
         if(null == uploadFile) return ResultSet.build(ResultEnum.INVALID_REQUEST);
         if(maxSize < uploadFile.getSize()) return ResultSet.build(ResultEnum.INVALID_REQUEST).setMsg("文件不能超过10MB");
+        if(!uploadFileType.contains(FileUtils.getSuffix(uploadFile.getOriginalFilename()).substring(1)))  return ResultSet.build(ResultEnum.INVALID_REQUEST).setMsg("文件类型错误");
 
         return fileService.saveFile(uploadFile, appKey);
     }
@@ -80,11 +91,11 @@ public class FileSysController {
      * @return
      * @throws Exception
      */
-    @ApiOperation(value = "文件打包接口", notes = "文件打包接口")
+    @ApiOperation(value = "文件打包接口", notes = "文件打包接口;请在请求头中携带单点的 Authentication")
     @ApiImplicitParams({
             @ApiImplicitParam(name="fileInfos", value = "欲打包的文件信息;此字段传入JSON串;包含以下字段：<br>fileId 文件ID<br>target 文件处理信息<br>", required = true, paramType = "query", dataType = "string"),
             @ApiImplicitParam(name="zipName", value = "打包文件名;可以为空", required = true, paramType = "query", dataType = "string"),
-            @ApiImplicitParam(name="appKey", value = "分配的appKey", required = false, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = false, paramType = "query", dataType = "string"),
     })
     @Authentication()
     @RequestMapping(value = "/packFilesToZip", method = RequestMethod.POST)
@@ -99,5 +110,7 @@ public class FileSysController {
         if(null == fileInfos || 0 == fileInfos.size()) return ResultSet.build(ResultEnum.INVALID_REQUEST);
         return fileService.packFilesToZip(fileInfos, zipName, appKey);
     }
+
+
 
 }
