@@ -7,6 +7,7 @@ import com.github.misterchangray.common.enums.ResultEnum;
 import com.github.misterchangray.common.utils.CryptoUtils;
 import com.github.misterchangray.common.utils.DateUtils;
 import com.github.misterchangray.common.utils.FileUtils;
+import com.github.misterchangray.common.utils.ImageUtils;
 import com.github.misterchangray.dao.entity.CommonAuthorizeCode;
 import com.github.misterchangray.dao.entity.CommonAuthorizeCodeQuery;
 import com.github.misterchangray.dao.entity.CommonFile;
@@ -20,10 +21,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -39,9 +42,13 @@ public class FileServiceImpl implements FileService {
     @Autowired
     CommonFileMapper commonFileMapper;
     @Autowired
+    ImageUtils imageUtils;
+    @Autowired
     CommonAuthorizeCodeMapper commonAuthorizeCodeMapper;
     @Value("${file.base.path:d:/upload}")
     private String baseUploadPath;
+    @Value("${upload.img.compress:100*150}")
+    private String uploadImgCompress;
 
 
 
@@ -111,8 +118,9 @@ public class FileServiceImpl implements FileService {
             //验证appKey
             if(false == this.existAppKey(appKey)) return ResultSet.build(ResultEnum.INVALID_REQUEST);
 
+            byte[] fileData = uploadFile.getBytes();
             //验证是否有相同文件;有则直接返回
-            String fileSign = CryptoUtils.encodeMD5(uploadFile.getBytes());
+            String fileSign = CryptoUtils.encodeMD5(fileData);
             CommonFile commonFile;
             if(null != (commonFile = this.existFile(fileSign))) return ResultSet.build(ResultEnum.SUCCESS).setData(commonFile);
 
@@ -126,6 +134,11 @@ public class FileServiceImpl implements FileService {
             commonFile.setFileType(uploadFile.getContentType());
             commonFile.setFileMd5(fileSign);
             commonFile.setDeleted(DBEnum.FALSE.getCode());
+            //如果是图片文件则增加缩略图链接
+            if(FileUtils.isImg(commonFile.getFileSuffix())) {
+                commonFile.setFileCompPath(FileUtils.addPrefix(commonFile.getFilePath(), ImageUtils.DEFAULT_PREVFIX));
+            }
+
             if(0 != commonFileMapper.insert(commonFile)) {
                 //生成文件路径; baseUploadPath + uuid + 文件后缀
                 String path = baseUploadPath + commonFile.getFilePath();
@@ -134,6 +147,12 @@ public class FileServiceImpl implements FileService {
                 if(!file.getParentFile().exists()) file.getParentFile().mkdirs();
                 //保存上传文件
                 uploadFile.transferTo(file);
+                if(FileUtils.isImg(commonFile.getFileSuffix())) {
+                    int w = Integer.parseInt(uploadImgCompress.split("\\*")[0]);
+                    int h = Integer.parseInt(uploadImgCompress.split("\\*")[1]);
+                    //保存成缩略图文件
+                    imageUtils.thumbnailImageForBuffer(fileData, FileUtils.addPrefix(path, ImageUtils.DEFAULT_PREVFIX) ,w , h, null);
+                }
 
                 return ResultSet.build(ResultEnum.SUCCESS).setData(commonFile);
             } else {
@@ -161,7 +180,7 @@ public class FileServiceImpl implements FileService {
         //验证appKey
         if(false == this.existAppKey(appKey)) return ResultSet.build(ResultEnum.INVALID_REQUEST);
 
-        String zipFilePath = this.packZipFile(fileInfos, zipName);
+        String zipFilePath = this.packZipToDisk(fileInfos, zipName);
         File file = new File(zipFilePath);
         if(null != zipFilePath) {
             //保存压缩文件信息
@@ -219,13 +238,13 @@ public class FileServiceImpl implements FileService {
 
 
     /**
-     * 打包成Zip文件
+     * 打包生成Zip文件
      * @param fileInfos 被压缩文件信息
      * @param zipName   压缩文件名
      * @return 返回压缩文件名
      * @throws RuntimeException 压缩失败会抛出运行时异常
      */
-    private String packZipFile(List<FileInfo>  fileInfos, String zipName) throws Exception{
+    private String packZipToDisk(List<FileInfo>  fileInfos, String zipName) throws Exception{
         if(null == fileInfos || 0 == fileInfos.size()) return null;
         byte[] buf = new byte[2 * 1024];
         File sourceFile;
