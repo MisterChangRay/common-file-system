@@ -7,6 +7,7 @@ import com.github.misterchangray.service.file.dto.FileInfo;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -16,7 +17,7 @@ import java.util.List;
  * @author Rui.Zhang/misterchangray@hotmail.com
  * @author Created on 3/20/2018.
  */
-public interface FileService extends BaseService<CommonFile> {
+public interface FileService {
     ResultSet<CommonFile> saveFile(MultipartFile uploadFile, String appKey) throws IOException;
 
 
@@ -46,4 +47,12 @@ public interface FileService extends BaseService<CommonFile> {
      */
     ResultSet<CommonFile> packFilesToZip(List<FileInfo> fileInfos, String zipName, String appKey) throws Exception;
 
+    /**
+     * 获取文件实例
+     * @param fileId
+     * @param appKey
+     * @param token
+     * @return
+     */
+    ResultSet<File> getFile(String fileId, String appKey, String token, String random);
 }

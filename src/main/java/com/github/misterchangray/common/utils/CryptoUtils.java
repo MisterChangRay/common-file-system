@@ -1,18 +1,14 @@
 package com.github.misterchangray.common.utils;
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
+
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.IOUtils;
+
+import java.io.*;
 import java.net.URL;
 import java.util.UUID;
 import java.util.zip.CRC32;
 import java.util.zip.CheckedInputStream;
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.IOUtils;
 
 /**
  *  加密工具类，包含MD5,BASE64,SHA,CRC32
@@ -24,6 +20,14 @@ public class CryptoUtils {
     private static final String DEFAULT_CHARSET = "UTF-8";
 
 
+    public static void main(String[] a) {
+        String b = "[{\"target\":\"/etc/cao.png\"},{\"fileId\":\"\",\"target\":\"/etc2/cao2.png\"}]";
+
+        System.out.println(encodeMD5(b));
+
+
+
+    }
     /**
      * 获取UUID
      * @return

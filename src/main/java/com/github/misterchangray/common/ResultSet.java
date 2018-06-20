@@ -99,6 +99,14 @@ public class ResultSet<T> {
         return resultSet;
     }
 
+    public static ResultSet build(ResultEnum resultEnum, String msg) {
+        ResultSet resultSet = build(resultEnum);
+        if(null != msg) {
+            resultSet.setMsg(msg);
+        }
+        return resultSet;
+    }
+
     @Override
     public String toString() {
         return JSONUtils.obj2json(this);

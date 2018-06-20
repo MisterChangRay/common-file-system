@@ -21,12 +21,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -49,24 +47,24 @@ public class FileServiceImpl implements FileService {
     private String baseUploadPath;
     @Value("${upload.img.compress:100*150}")
     private String uploadImgCompress;
+    @Value("${upload.need.token:false}")
+    private boolean uploadNeedToken;
 
+    public ResultSet<File> getFile(String fileId, String appKey, String token, String random) {
+        if(false == existAppKey(appKey)) return ResultSet.build(ResultEnum.INVALID_PARAM, "appKey无效");
+        if(false == validToken(appKey, token, random)) return ResultSet.build(ResultEnum.INVALID_PARAM, "token无效");
+        CommonFileQuery commonFileQuery = new CommonFileQuery();
+        CommonFileQuery.Criteria criteria = commonFileQuery.createCriteria();
+        criteria.andIdEqualTo(fileId);
+        List<CommonFile> commonFiles = commonFileMapper.selectByQuery(commonFileQuery);
+        if(0 == commonFiles.size()) return  ResultSet.build(ResultEnum.NOT_FOUND);
+        CommonFile commonFile = commonFiles.get(0);
+        if(DBEnum.TRUE.getCode() == commonFile.getDeleted()) return ResultSet.build(ResultEnum.GONE);
+        File file = new File(getFilePath(commonFile));
 
-
-    public ResultSet saveAll(List<CommonFile> commonFiles) { return null; }
-
-    public ResultSet edit(CommonFile commonFile) { return null; }
-
-    public ResultSet exist(List<Integer> ids) {
-        return null;
+        return ResultSet.build().setData(file);
     }
 
-    public ResultSet getById(Integer id) {
-        return null;
-    }
-
-    public ResultSet getByIds(List<Integer> ids) {
-        return null;
-    }
 
     public ResultSet list(CommonFile commonFile, PageInfo pageInfo) {
         if(null == pageInfo) pageInfo = new PageInfo();
@@ -192,11 +190,38 @@ public class FileServiceImpl implements FileService {
             commonFile.setFilePath(zipFilePath.replaceAll(baseUploadPath, ""));
             commonFile.setFileType("application/zip");
             commonFile.setDeleted(DBEnum.FALSE.getCode());
-//            this.save(commonFile); //todo 暂不保存压缩文件到数据库
+            this.save(commonFile);
 
             return ResultSet.build(ResultEnum.SUCCESS).setData(commonFile);
         }
         return ResultSet.build(ResultEnum.INVALID_REQUEST);
+    }
+
+
+
+    /**
+     * 验证token是否有效
+     * @param appKey 服务器分配
+     * @param token 待校验token
+     * @param random 生成token时的随机值
+     * @return
+     * true/有效;false/无效;
+     *
+     * token生成规则:
+     * 1.生成随机数 randomValue;例如 "5124"
+     * 2.取当前时间 dateStr,并格式化"yyyyMMddhhmm";注意此处;例如"201806201503"
+     * 3.取得服务器分配的 appKey
+     * 4.将以上数据按照规则串联; randomValue + appKey + dateStr
+     * 5.使用 md5 计算串联后的字符串(计算结果应为32为小写字母md5值);例如 89f03a4ed1bee26bb35d397fe5151c88
+     * 6.步骤5的计算结果即为 token 值;
+     */
+    private boolean validToken(String appKey, String token, String random) {
+        if(false == uploadNeedToken) return true; //如果不需要校验token则直接返回true
+
+        String date = DateUtils.now("yyyyMMddhhmm");
+        String localToken = CryptoUtils.encodeMD5(random + appKey + date);
+        if(localToken.equals(token)) return true;
+        return false;
     }
 
     /**

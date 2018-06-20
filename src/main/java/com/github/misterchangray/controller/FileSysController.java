@@ -18,7 +18,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import java.io.*;
 import java.util.List;
 
 /**
@@ -29,7 +31,7 @@ import java.util.List;
  */
 @Api(tags ="文件管理", description = "FileSysController")
 @Controller
-@RequestMapping("/v1/file")
+@RequestMapping("/v1/filesys")
 public class FileSysController {
     @Autowired
     private HttpSession httpSession;
@@ -41,6 +43,60 @@ public class FileSysController {
     @Value("${upload.file.type:jpg;jpeg;png;}")
     private String uploadFileType;
 
+
+    /**
+     * 文件下载接口
+     * @param fileId
+     * @param appKey
+     * @param token
+     * @param response
+     * @throws Exception
+     */
+    @RequestMapping(value = "/downloadFile", method = RequestMethod.POST)
+    public void downloadFile(@RequestParam("fileId") String fileId,
+                             @RequestParam("appKey") String appKey,
+                             @RequestParam(value = "token", required = false) String token,
+                             @RequestParam("random") String random,
+                             HttpServletResponse response
+                             ) throws Exception{
+        response.reset();
+        response.addHeader("Access-Control-Allow-Origin", "*");
+        response.setContentType("application/json");
+
+        ResultSet<File> resultSet = fileService.getFile(fileId, appKey, token, random);
+        OutputStream outputStream = response.getOutputStream();
+        if(0 != resultSet.getCode()) {
+            outputStream.write(JSONUtils.obj2json(resultSet).getBytes());
+            outputStream.flush();
+            outputStream.close();
+        }
+
+        try {
+            File file = resultSet.getData();
+            // 设置response的Header
+            response.addHeader("Content-Disposition", "attachment;filename=" + new String(file.getName().getBytes()));
+            response.addHeader("Content-Length", "" + file.length());
+            response.setContentType("application/octet-stream");
+
+            //读取要下载的文件，保存到文件输入流
+            FileInputStream in = new FileInputStream(file);
+            //创建输出流
+            OutputStream out = response.getOutputStream();
+            //缓存区
+            byte buffer[] = new byte[2048];
+            int len = 0;
+            //循环将输入流中的内容读取到缓冲区中
+            while((len = in.read(buffer)) > 0){
+                out.write(buffer, 0, len);
+            }
+            //关闭
+            in.close();
+            out.flush();
+            out.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
 
     /**
      * 文件上传接口;
