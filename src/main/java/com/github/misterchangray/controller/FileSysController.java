@@ -43,6 +43,35 @@ public class FileSysController {
     @Value("${upload.file.type:jpg;jpeg;png;}")
     private String uploadFileType;
 
+    /**
+     * 获取文件下载地址
+     * @param fileId
+     * @param appKey
+     * @param token
+     * @throws Exception
+     */
+    @ApiOperation(value = "获取文件下载地址", notes = "获取文件下载地址;请在请求头中携带单点的 Authorization")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name="fileId", value = "欲获取地址的的文件Id", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="token", value = "校验token;token生成规则:\n" +
+                    "1.生成随机数 randomValue;例如 \"5124\";\n" +
+                    "2.取当前时间 dateStr,并格式化\"yyyyMMddhhmm\";注意此处;例如\"201806201503\";\n" +
+                    "3.取得服务器分配的 appKey;\n" +
+                    "4.将以上数据按照规则串联; randomValue + appKey + dateStr;\n" +
+                    "5.使用 md5 计算串联后的字符串(计算结果应为32为小写字母md5值);例如 89f03a4ed1bee26bb35d397fe5151c88;\n" +
+                    "6.步骤5的计算结果即为 token 值;", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="random", value = "生成token使用的随机数", required = true, paramType = "query", dataType = "string"),
+    })
+    @Authorization()
+    @ResponseBody
+    @RequestMapping(value = "/downloadUrl", method = RequestMethod.POST)
+    public ResultSet downloadUrl(@RequestParam("fileId") String fileId,
+                             @RequestParam("appKey") String appKey,
+                             @RequestParam(value = "token", required = false) String token,
+                             @RequestParam("random") String random) {
+      return fileService.getFileUrl(fileId, appKey, token, random);
+    }
 
     /**
      * 文件下载接口
@@ -52,6 +81,20 @@ public class FileSysController {
      * @param response
      * @throws Exception
      */
+    @ApiOperation(value = "文件下载接口", notes = "文件下载接口;请在请求头中携带单点的 Authorization")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name="fileId", value = "欲下载的文件Id", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="token", value = "校验token;token生成规则:\n" +
+                    "1.生成随机数 randomValue;例如 \"5124\";\n" +
+                    "2.取当前时间 dateStr,并格式化\"yyyyMMddhhmm\";注意此处;例如\"201806201503\";\n" +
+                    "3.取得服务器分配的 appKey;\n" +
+                    "4.将以上数据按照规则串联; randomValue + appKey + dateStr;\n" +
+                    "5.使用 md5 计算串联后的字符串(计算结果应为32为小写字母md5值);例如 89f03a4ed1bee26bb35d397fe5151c88;\n" +
+                    "6.步骤5的计算结果即为 token 值;", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="random", value = "生成token使用的随机数", required = true, paramType = "query", dataType = "string"),
+    })
+    @Authorization()
     @RequestMapping(value = "/downloadFile", method = RequestMethod.POST)
     public void downloadFile(@RequestParam("fileId") String fileId,
                              @RequestParam("appKey") String appKey,
@@ -61,12 +104,12 @@ public class FileSysController {
                              ) throws Exception{
         response.reset();
         response.addHeader("Access-Control-Allow-Origin", "*");
-        response.setContentType("application/json");
+        response.setContentType("application/json; charset=utf-8");
 
         ResultSet<File> resultSet = fileService.getFile(fileId, appKey, token, random);
         OutputStream outputStream = response.getOutputStream();
         if(0 != resultSet.getCode()) {
-            outputStream.write(JSONUtils.obj2json(resultSet).getBytes());
+            outputStream.write(JSONUtils.obj2json(resultSet).getBytes("utf-8"));
             outputStream.flush();
             outputStream.close();
         }
@@ -80,19 +123,17 @@ public class FileSysController {
 
             //读取要下载的文件，保存到文件输入流
             FileInputStream in = new FileInputStream(file);
-            //创建输出流
-            OutputStream out = response.getOutputStream();
             //缓存区
             byte buffer[] = new byte[2048];
             int len = 0;
             //循环将输入流中的内容读取到缓冲区中
             while((len = in.read(buffer)) > 0){
-                out.write(buffer, 0, len);
+                outputStream.write(buffer, 0, len);
             }
             //关闭
             in.close();
-            out.flush();
-            out.close();
+            outputStream.flush();
+            outputStream.close();
         } catch (IOException ex) {
             ex.printStackTrace();
         }

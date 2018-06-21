@@ -65,6 +65,19 @@ public class FileServiceImpl implements FileService {
         return ResultSet.build().setData(file);
     }
 
+    public ResultSet getFileUrl(String fileId, String appKey, String token, String random) {
+        if(false == existAppKey(appKey)) return ResultSet.build(ResultEnum.INVALID_PARAM, "appKey无效");
+        if(false == validToken(appKey, token, random)) return ResultSet.build(ResultEnum.INVALID_PARAM, "token无效");
+        CommonFileQuery commonFileQuery = new CommonFileQuery();
+        CommonFileQuery.Criteria criteria = commonFileQuery.createCriteria();
+        criteria.andIdEqualTo(fileId);
+        List<CommonFile> commonFiles = commonFileMapper.selectByQuery(commonFileQuery);
+        if(0 == commonFiles.size()) return  ResultSet.build(ResultEnum.NOT_FOUND);
+        CommonFile commonFile = commonFiles.get(0);
+        if(DBEnum.TRUE.getCode() == commonFile.getDeleted()) return ResultSet.build(ResultEnum.GONE);
+        return ResultSet.build().setData(commonFile.getFilePath());
+    }
+
 
     public ResultSet list(CommonFile commonFile, PageInfo pageInfo) {
         if(null == pageInfo) pageInfo = new PageInfo();

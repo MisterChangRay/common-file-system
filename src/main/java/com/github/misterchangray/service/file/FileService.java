@@ -52,7 +52,18 @@ public interface FileService {
      * @param fileId
      * @param appKey
      * @param token
+     * @param random
      * @return
      */
     ResultSet<File> getFile(String fileId, String appKey, String token, String random);
+
+    /**
+     *
+     * @param fileId
+     * @param appKey
+     * @param token
+     * @param random
+     * @return
+     */
+    ResultSet getFileUrl(String fileId, String appKey, String token, String random);
 }
