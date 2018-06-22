@@ -14,6 +14,7 @@ import com.github.misterchangray.dao.entity.CommonFile;
 import com.github.misterchangray.dao.entity.CommonFileQuery;
 import com.github.misterchangray.dao.mapper.CommonAuthorizeCodeMapper;
 import com.github.misterchangray.dao.mapper.CommonFileMapper;
+import com.github.misterchangray.service.common.RedisCacheService;
 import com.github.misterchangray.service.file.FileService;
 import com.github.misterchangray.service.file.dto.FileInfo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,8 @@ public class FileServiceImpl implements FileService {
     ImageUtils imageUtils;
     @Autowired
     CommonAuthorizeCodeMapper commonAuthorizeCodeMapper;
+    @Autowired
+    RedisCacheService redisCacheService;
     @Value("${file.base.path:d:/upload}")
     private String baseUploadPath;
     @Value("${upload.img.compress:100*150}")
@@ -50,9 +53,7 @@ public class FileServiceImpl implements FileService {
     @Value("${upload.need.token:false}")
     private boolean uploadNeedToken;
 
-    public ResultSet<File> getFile(String fileId, String appKey, String token, String random) {
-        if(false == existAppKey(appKey)) return ResultSet.build(ResultEnum.INVALID_PARAM, "appKey无效");
-        if(false == validToken(appKey, token, random)) return ResultSet.build(ResultEnum.INVALID_PARAM, "token无效");
+    public ResultSet<File> getFile(String fileId) {
         CommonFileQuery commonFileQuery = new CommonFileQuery();
         CommonFileQuery.Criteria criteria = commonFileQuery.createCriteria();
         criteria.andIdEqualTo(fileId);
@@ -65,9 +66,8 @@ public class FileServiceImpl implements FileService {
         return ResultSet.build().setData(file);
     }
 
-    public ResultSet getFileUrl(String fileId, String appKey, String token, String random) {
+    public ResultSet buildDownloadUrl(String fileId, String appKey) {
         if(false == existAppKey(appKey)) return ResultSet.build(ResultEnum.INVALID_PARAM, "appKey无效");
-        if(false == validToken(appKey, token, random)) return ResultSet.build(ResultEnum.INVALID_PARAM, "token无效");
         CommonFileQuery commonFileQuery = new CommonFileQuery();
         CommonFileQuery.Criteria criteria = commonFileQuery.createCriteria();
         criteria.andIdEqualTo(fileId);
@@ -75,9 +75,22 @@ public class FileServiceImpl implements FileService {
         if(0 == commonFiles.size()) return  ResultSet.build(ResultEnum.NOT_FOUND);
         CommonFile commonFile = commonFiles.get(0);
         if(DBEnum.TRUE.getCode() == commonFile.getDeleted()) return ResultSet.build(ResultEnum.GONE);
-        return ResultSet.build().setData(commonFile.getFilePath());
+        StringBuilder url = new StringBuilder("/v1/filesys/downloadFile");
+        url.append("?_t=" + buildToken());
+        url.append("&_i=" + commonFile.getId());
+
+        return ResultSet.build().setData(url.toString());
     }
 
+    /**
+     * 生成一个token并存到数据库
+     * @return
+     */
+    private String buildToken() {
+        String uuid = CryptoUtils.getUUID();
+        redisCacheService.set(uuid, true, 600);
+        return uuid;
+    }
 
     public ResultSet list(CommonFile commonFile, PageInfo pageInfo) {
         if(null == pageInfo) pageInfo = new PageInfo();
@@ -214,27 +227,15 @@ public class FileServiceImpl implements FileService {
 
     /**
      * 验证token是否有效
-     * @param appKey 服务器分配
      * @param token 待校验token
-     * @param random 生成token时的随机值
      * @return
      * true/有效;false/无效;
-     *
-     * token生成规则:
-     * 1.生成随机数 randomValue;例如 "5124"
-     * 2.取当前时间 dateStr,并格式化"yyyyMMddhhmm";注意此处;例如"201806201503"
-     * 3.取得服务器分配的 appKey
-     * 4.将以上数据按照规则串联; randomValue + appKey + dateStr
-     * 5.使用 md5 计算串联后的字符串(计算结果应为32为小写字母md5值);例如 89f03a4ed1bee26bb35d397fe5151c88
-     * 6.步骤5的计算结果即为 token 值;
      */
-    private boolean validToken(String appKey, String token, String random) {
+    public boolean validToken(String token) {
         if(false == uploadNeedToken) return true; //如果不需要校验token则直接返回true
 
-        String date = DateUtils.now("yyyyMMddhhmm");
-        String localToken = CryptoUtils.encodeMD5(random + appKey + date);
-        if(localToken.equals(token)) return true;
-        return false;
+        if(null == redisCacheService.get(token)) return false;
+        return true;
     }
 
     /**
@@ -261,7 +262,7 @@ public class FileServiceImpl implements FileService {
      * @param appKey
      * @return true有效;false无效
      */
-    private boolean existAppKey(String appKey) {
+    public boolean existAppKey(String appKey) {
         //验证appKey
         CommonAuthorizeCodeQuery commonAuthorizeCodeQuery = new CommonAuthorizeCodeQuery();
         CommonAuthorizeCodeQuery.Criteria criteria = commonAuthorizeCodeQuery.createCriteria();

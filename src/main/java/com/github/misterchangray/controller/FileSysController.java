@@ -47,75 +47,99 @@ public class FileSysController {
      * 获取文件下载地址
      * @param fileId
      * @param appKey
-     * @param token
      * @throws Exception
      */
-    @ApiOperation(value = "获取文件下载地址", notes = "获取文件下载地址;请在请求头中携带单点的 Authorization")
+    @ApiOperation(value = "获取文件下载地址", notes = "获取文件下载地址;请在请求头中携带单点的 Authorization;请注意获取的链接10分钟失效")
     @ApiImplicitParams({
             @ApiImplicitParam(name="fileId", value = "欲获取地址的的文件Id", required = true, paramType = "query", dataType = "string"),
-            @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = true, paramType = "query", dataType = "string"),
-            @ApiImplicitParam(name="token", value = "校验token;token生成规则:\n" +
-                    "1.生成随机数 randomValue;例如 \"5124\";\n" +
-                    "2.取当前时间 dateStr,并格式化\"yyyyMMddhhmm\";注意此处;例如\"201806201503\";\n" +
-                    "3.取得服务器分配的 appKey;\n" +
-                    "4.将以上数据按照规则串联; randomValue + appKey + dateStr;\n" +
-                    "5.使用 md5 计算串联后的字符串(计算结果应为32为小写字母md5值);例如 89f03a4ed1bee26bb35d397fe5151c88;\n" +
-                    "6.步骤5的计算结果即为 token 值;", required = true, paramType = "query", dataType = "string"),
-            @ApiImplicitParam(name="random", value = "生成token使用的随机数", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = true, paramType = "query", dataType = "string")
     })
     @Authorization()
     @ResponseBody
     @RequestMapping(value = "/downloadUrl", method = RequestMethod.POST)
     public ResultSet downloadUrl(@RequestParam("fileId") String fileId,
-                             @RequestParam("appKey") String appKey,
-                             @RequestParam(value = "token", required = false) String token,
-                             @RequestParam("random") String random) {
-      return fileService.getFileUrl(fileId, appKey, token, random);
+                             @RequestParam("appKey") String appKey) {
+      return fileService.buildDownloadUrl(fileId, appKey);
+    }
+
+    /**
+     * 文件下载接口
+     * @param response
+     * @throws Exception
+     */
+    @ApiOperation(value = "[GET]文件下载接口", notes = "文件下载接口;请在请求头中携带单点的 Authorization")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name="fileId", value = "欲下载的文件Id", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = true, paramType = "query", dataType = "string")
+    })
+    @RequestMapping(value = "/downloadFile", method = RequestMethod.GET)
+    public void downloadFileByGet(@RequestParam("_i") String fileId, @RequestParam("_t") String token, HttpServletResponse response) throws Exception {
+        response.reset();
+        response.addHeader("Access-Control-Allow-Origin", "*");
+        OutputStream outputStream = response.getOutputStream();
+
+        if(false == fileService.validToken(token)) {
+            outputStream.flush();
+            outputStream.close();
+        }
+
+        ResultSet<File> resultSet = fileService.getFile(fileId);
+        if(0 != resultSet.getCode()) {
+            outputStream.flush();
+            outputStream.close();
+        }
+
+        outputFile(response, outputStream, resultSet.getData());
     }
 
     /**
      * 文件下载接口
      * @param fileId
      * @param appKey
-     * @param token
      * @param response
      * @throws Exception
      */
-    @ApiOperation(value = "文件下载接口", notes = "文件下载接口;请在请求头中携带单点的 Authorization")
+    @ApiOperation(value = "[POST]文件下载接口", notes = "文件下载接口;请在请求头中携带单点的 Authorization")
     @ApiImplicitParams({
             @ApiImplicitParam(name="fileId", value = "欲下载的文件Id", required = true, paramType = "query", dataType = "string"),
-            @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = true, paramType = "query", dataType = "string"),
-            @ApiImplicitParam(name="token", value = "校验token;token生成规则:\n" +
-                    "1.生成随机数 randomValue;例如 \"5124\";\n" +
-                    "2.取当前时间 dateStr,并格式化\"yyyyMMddhhmm\";注意此处;例如\"201806201503\";\n" +
-                    "3.取得服务器分配的 appKey;\n" +
-                    "4.将以上数据按照规则串联; randomValue + appKey + dateStr;\n" +
-                    "5.使用 md5 计算串联后的字符串(计算结果应为32为小写字母md5值);例如 89f03a4ed1bee26bb35d397fe5151c88;\n" +
-                    "6.步骤5的计算结果即为 token 值;", required = true, paramType = "query", dataType = "string"),
-            @ApiImplicitParam(name="random", value = "生成token使用的随机数", required = true, paramType = "query", dataType = "string"),
+            @ApiImplicitParam(name="appKey", value = "文件服务器分配的 appKey", required = true, paramType = "query", dataType = "string")
     })
     @Authorization()
     @RequestMapping(value = "/downloadFile", method = RequestMethod.POST)
-    public void downloadFile(@RequestParam("fileId") String fileId,
+    public void downloadFileByPost(@RequestParam("fileId") String fileId,
                              @RequestParam("appKey") String appKey,
-                             @RequestParam(value = "token", required = false) String token,
-                             @RequestParam("random") String random,
                              HttpServletResponse response
                              ) throws Exception{
         response.reset();
         response.addHeader("Access-Control-Allow-Origin", "*");
         response.setContentType("application/json; charset=utf-8");
-
-        ResultSet<File> resultSet = fileService.getFile(fileId, appKey, token, random);
         OutputStream outputStream = response.getOutputStream();
+
+
+        if(false == fileService.existAppKey(appKey)) {
+            outputStream.write(JSONUtils.obj2json(ResultSet.build(ResultEnum.INVALID_PARAM, "appKey无效")).getBytes("utf-8"));
+            outputStream.flush();
+            outputStream.close();
+            return;
+        }
+        ResultSet<File> resultSet = fileService.getFile(fileId);
         if(0 != resultSet.getCode()) {
             outputStream.write(JSONUtils.obj2json(resultSet).getBytes("utf-8"));
             outputStream.flush();
             outputStream.close();
         }
 
+        outputFile(response, outputStream, resultSet.getData());
+    }
+
+    /**
+     * 输出文件到输出流
+     * @param response
+     * @param outputStream
+     * @param file
+     */
+    private void outputFile(HttpServletResponse response, OutputStream outputStream, File file) {
         try {
-            File file = resultSet.getData();
             // 设置response的Header
             response.addHeader("Content-Disposition", "attachment;filename=" + new String(file.getName().getBytes()));
             response.addHeader("Content-Length", "" + file.length());

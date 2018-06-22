@@ -50,20 +50,18 @@ public interface FileService {
     /**
      * 获取文件实例
      * @param fileId
-     * @param appKey
-     * @param token
-     * @param random
      * @return
      */
-    ResultSet<File> getFile(String fileId, String appKey, String token, String random);
+    ResultSet<File> getFile(String fileId);
 
     /**
      *
      * @param fileId
      * @param appKey
-     * @param token
-     * @param random
      * @return
      */
-    ResultSet getFileUrl(String fileId, String appKey, String token, String random);
+    ResultSet buildDownloadUrl(String fileId, String appKey);
+
+    boolean validToken(String token);
+    boolean existAppKey(String appKey);
 }
