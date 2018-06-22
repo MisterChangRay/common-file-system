@@ -4,10 +4,7 @@ import com.github.misterchangray.common.PageInfo;
 import com.github.misterchangray.common.ResultSet;
 import com.github.misterchangray.common.enums.DBEnum;
 import com.github.misterchangray.common.enums.ResultEnum;
-import com.github.misterchangray.common.utils.CryptoUtils;
-import com.github.misterchangray.common.utils.DateUtils;
-import com.github.misterchangray.common.utils.FileUtils;
-import com.github.misterchangray.common.utils.ImageUtils;
+import com.github.misterchangray.common.utils.*;
 import com.github.misterchangray.dao.entity.CommonAuthorizeCode;
 import com.github.misterchangray.dao.entity.CommonAuthorizeCodeQuery;
 import com.github.misterchangray.dao.entity.CommonFile;
@@ -26,6 +23,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -66,20 +64,28 @@ public class FileServiceImpl implements FileService {
         return ResultSet.build().setData(file);
     }
 
-    public ResultSet buildDownloadUrl(String fileId, String appKey) {
+    public ResultSet buildDownloadUrl(List<String> fileIds, String appKey) {
         if(false == existAppKey(appKey)) return ResultSet.build(ResultEnum.INVALID_PARAM, "appKey无效");
         CommonFileQuery commonFileQuery = new CommonFileQuery();
         CommonFileQuery.Criteria criteria = commonFileQuery.createCriteria();
-        criteria.andIdEqualTo(fileId);
+        criteria.andIdIn(fileIds);
         List<CommonFile> commonFiles = commonFileMapper.selectByQuery(commonFileQuery);
         if(0 == commonFiles.size()) return  ResultSet.build(ResultEnum.NOT_FOUND);
-        CommonFile commonFile = commonFiles.get(0);
-        if(DBEnum.TRUE.getCode() == commonFile.getDeleted()) return ResultSet.build(ResultEnum.GONE);
-        StringBuilder url = new StringBuilder("/v1/filesys/downloadFile");
-        url.append("?_t=" + buildToken());
-        url.append("&_i=" + commonFile.getId());
+        List<MapBuilder> mapBuilders = new ArrayList<MapBuilder>();
+        for(CommonFile commonFile : commonFiles) {
+            if(DBEnum.TRUE.getCode() == commonFile.getDeleted()) {
+                mapBuilders.add(MapBuilder.build().add(commonFile.getId(), "deleted"));
+                continue;
+            }
 
-        return ResultSet.build().setData(url.toString());
+            StringBuilder url = new StringBuilder("/v1/filesys/downloadFile");
+            url.append("?_t=" + buildToken());
+            url.append("&_i=" + commonFile.getId());
+
+            mapBuilders.add(MapBuilder.build().add(commonFile.getId(), url.toString()));
+        }
+
+        return ResultSet.build().setData(mapBuilders);
     }
 
     /**

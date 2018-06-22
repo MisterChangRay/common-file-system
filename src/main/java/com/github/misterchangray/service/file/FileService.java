@@ -60,7 +60,7 @@ public interface FileService {
      * @param appKey
      * @return
      */
-    ResultSet buildDownloadUrl(String fileId, String appKey);
+    ResultSet buildDownloadUrl(List<String> fileId, String appKey);
 
     boolean validToken(String token);
     boolean existAppKey(String appKey);
